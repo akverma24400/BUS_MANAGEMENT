@@ -1,5 +1,8 @@
 package bus;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,5 +49,55 @@ public class part3 {
 		}
 		Collections.reverse(path);
 		return path;
+	}
+
+	public static int getTimeDifference(String departure, String arrival) {
+		String[] dep = departure.split(":");
+		String[] arr = arrival.split(":");
+		int depMinutes = Integer.parseInt(dep[0]) * 60 + Integer.parseInt(dep[1]);
+		int arrMinutes = Integer.parseInt(arr[0]) * 60 + Integer.parseInt(arr[1]);
+		return arrMinutes - depMinutes;
+	}
+
+	public static int getTimeDifference(String tripId, int fromStopId, int toStopId) {
+		String stopTimesFile = "src\\bus\\stop_times.txt";
+		String departureTime = null;
+		String arrivalTime = null;
+		boolean foundFrom = false;
+
+		try (BufferedReader br = new BufferedReader(new FileReader(stopTimesFile))) {
+			br.readLine();
+			String line;
+			while ((line = br.readLine()) != null) {
+				String[] parts = line.split(",");
+				if (parts.length < 4)
+					continue;
+				String tId = parts[0];
+				String arrTime = parts[1];
+				String depTime = parts[2];
+				int stopId = Integer.parseInt(parts[3]);
+
+				if (!tId.equals(tripId))
+					continue;
+
+				if (stopId == fromStopId) {
+					departureTime = depTime;
+					foundFrom = true;
+				}
+
+				if (stopId == toStopId && foundFrom) {
+					arrivalTime = arrTime;
+					break;
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		if (departureTime != null && arrivalTime != null) {
+			return getTimeDifference(departureTime, arrivalTime);
+		}
+
+		return -1;
 	}
 }

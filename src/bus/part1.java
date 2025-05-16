@@ -33,13 +33,15 @@ public class part1 {
 	static Map<Integer, String[]> stopIdToCoordinates = new HashMap<>();
 	static ArrayList<ArrayList<int[]>> graph = new ArrayList<>();
 
+	static Map<String, String> edgeToTripId = new HashMap<>();
+
 	public static void main(String[] args) {
 		part2 p2Instance = new part2();
 		part2.TernarySearchTree tst = p2Instance.new TernarySearchTree();
 
 		try {
 			loadStops("src\\bus\\stop.txt", tst);
-			loadGraph("src\\bus\\stop_times.txt", "src\\bus\\transfers.txt");
+			loadGraphAndBuildEdgeTripMap("src\\bus\\stop_times.txt", "src\\bus\\transfers.txt");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -77,7 +79,7 @@ public class part1 {
 		inputPanel.add(new JLabel("Destination:"));
 		inputPanel.add(destField);
 		inputPanel.add(showButton);
-		inputPanel.add(totalTimeLabel); // Add label beside Show button
+		inputPanel.add(totalTimeLabel);
 
 		frame.add(topPanel, BorderLayout.CENTER);
 		frame.add(inputPanel, BorderLayout.SOUTH);
@@ -107,7 +109,21 @@ public class part1 {
 
 				for (int i = 0; i < path.size(); i++) {
 					int id = path.get(i);
-					String timeTaken = dist[id] + " minutes";
+					String timeTaken = "N/A";
+
+					if (i == 0) {
+						timeTaken = "0 mins";
+					} else {
+						int fromStop = path.get(i - 1);
+						int toStop = path.get(i);
+
+						String tripId = findTripIdForEdge(fromStop, toStop);
+						if (tripId != null) {
+							int diff = part3.getTimeDifference(tripId, fromStop, toStop);
+							timeTaken = (diff >= 0) ? (diff + " mins") : "N/A";
+						}
+					}
+
 					tableData[i][0] = String.valueOf(i + 1);
 					tableData[i][1] = String.valueOf(id);
 					tableData[i][2] = stopIdToName.getOrDefault(id, "Unknown");
@@ -115,7 +131,23 @@ public class part1 {
 				}
 
 				table.setModel(new javax.swing.table.DefaultTableModel(tableData, columnNames));
-				totalTimeLabel.setText("Total Time: " + dist[to] + " minutes");
+
+				int totalTime = 0;
+				boolean validTotal = true;
+				for (int i = 1; i < path.size(); i++) {
+					String tripId = findTripIdForEdge(path.get(i - 1), path.get(i));
+					if (tripId == null) {
+						validTotal = false;
+						break;
+					}
+					int diff = part3.getTimeDifference(tripId, path.get(i - 1), path.get(i));
+					if (diff < 0) {
+						validTotal = false;
+						break;
+					}
+					totalTime += diff;
+				}
+				totalTimeLabel.setText("Total Time: " + (validTotal ? totalTime + " mins" : "N/A"));
 
 			} catch (Exception ex) {
 				table.setModel(new javax.swing.table.DefaultTableModel(
@@ -129,7 +161,7 @@ public class part1 {
 		frame.setVisible(true);
 	}
 
-	private static void loadGraph(String stopTimesFile, String transfersFile) {
+	private static void loadGraphAndBuildEdgeTripMap(String stopTimesFile, String transfersFile) {
 		int maxStopId = Collections.max(stopIdToName.keySet());
 		for (int i = 0; i <= maxStopId; i++) {
 			graph.add(new ArrayList<>());
@@ -148,7 +180,11 @@ public class part1 {
 				int stopId = Integer.parseInt(parts[3]);
 
 				if (tripId.equals(prevTripId) && prevStopId != -1) {
+
 					graph.get(prevStopId).add(new int[] { stopId, 1 });
+
+					String key = prevStopId + "-" + stopId;
+					edgeToTripId.put(key, tripId);
 				}
 
 				prevTripId = tripId;
@@ -159,7 +195,7 @@ public class part1 {
 		}
 
 		try (BufferedReader br = new BufferedReader(new FileReader(transfersFile))) {
-			br.readLine();
+			br.readLine(); // skip header
 			String line;
 			while ((line = br.readLine()) != null) {
 				String[] parts = line.split(",");
@@ -185,7 +221,7 @@ public class part1 {
 
 	static void loadStops(String path, part2.TernarySearchTree tst) throws IOException {
 		BufferedReader br = new BufferedReader(new FileReader(path));
-		br.readLine(); // Skip header
+		br.readLine();
 		String line;
 		while ((line = br.readLine()) != null) {
 			String[] parts = line.split(",");
@@ -233,5 +269,9 @@ public class part1 {
 			return stopIdToName.entrySet().stream().filter(entry -> entry.getValue().equalsIgnoreCase(selected))
 					.findFirst().get().getKey();
 		}
+	}
+
+	static String findTripIdForEdge(int fromStop, int toStop) {
+		return edgeToTripId.get(fromStop + "-" + toStop);
 	}
 }
